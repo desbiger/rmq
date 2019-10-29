@@ -1,4 +1,4 @@
-package RabbitMQ_go
+package rmq
 
 import (
 	"github.com/joho/godotenv"

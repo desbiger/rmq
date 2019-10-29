@@ -1,4 +1,4 @@
-package RabbitMQ_go
+package rmq
 
 import (
 	"encoding/json"
