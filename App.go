@@ -12,11 +12,10 @@ type Engine struct {
 	Pass       string
 	Port       string
 	Connection *amqp.Connection
-
 }
 
 func (engine Engine) Get(Action string) []byte {
-	conn, err := amqp.Dial(fmt.Sprintf("amqp://%s:%s@%s:%s/", engine.User,  engine.Pass, engine.Host,engine.Port))
+	conn, err := amqp.Dial(fmt.Sprintf("amqp://%s:%s@%s:%s/", engine.User, engine.Pass, engine.Host, engine.Port))
 	fatalOnError(err)
 
 	defer conn.Close()
@@ -31,15 +30,14 @@ func (engine Engine) Get(Action string) []byte {
 
 func (engine Engine) Send(s string, body []byte) {
 
-
 	ch, err := engine.Connection.Channel()
-	if err != nil{
+	if err != nil {
 		log.Println(err)
 		return
 	}
 
 	_, err = ch.QueueDeclare(s, false, false, false, false, nil)
-	if err != nil{
+	if err != nil {
 		log.Println(err)
 		return
 	}
@@ -48,14 +46,30 @@ func (engine Engine) Send(s string, body []byte) {
 		ContentType: "text/plain",
 		Body:        body,
 	})
-	if err != nil{
+	if err != nil {
 		log.Println(err)
 		return
 	}
 
 }
 
-func NewEngine(Host string, User string, Pass string, Port string) (*Engine,error) {
+func (engine Engine) Listen(s string, DumpRequest func(res []byte)) {
+	conn, err := amqp.Dial(fmt.Sprintf("amqp://%s:%s@%s:%s/", engine.User, engine.Pass, engine.Host, engine.Port))
+	fatalOnError(err)
+
+	defer conn.Close()
+
+	ch, err := conn.Channel()
+	fatalOnError(err)
+
+	msgs, err := ch.Consume(s, "", true, false, false, false, nil)
+	for d := range msgs{
+		log.Println("geting data")
+		DumpRequest(d.Body)
+	}
+}
+
+func NewEngine(Host string, User string, Pass string, Port string) (*Engine, error) {
 
 	engine := &Engine{
 		Host: Host,
@@ -64,14 +78,14 @@ func NewEngine(Host string, User string, Pass string, Port string) (*Engine,erro
 		Port: Port,
 	}
 
-	conn, err := amqp.Dial(fmt.Sprintf("amqp://%s:%s@%s:%s/", engine.User, engine.Pass, engine.Host,engine.Port))
-	if err != nil{
-		return nil,err
+	conn, err := amqp.Dial(fmt.Sprintf("amqp://%s:%s@%s:%s/", engine.User, engine.Pass, engine.Host, engine.Port))
+	if err != nil {
+		return nil, err
 	}
 
 	engine.Connection = conn
 
-	return engine,nil
+	return engine, nil
 }
 
 func fatalOnError(err error) {
