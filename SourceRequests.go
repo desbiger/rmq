@@ -28,7 +28,7 @@ func (requests *SourceRequests) Register(request SourceRequest) {
 
 	*requests = append(*requests, request)
 
-	if len(*requests) >= 100 {
+	if len(*requests) >= 2000 {
 
 		mq, err := NewEngine(os.Getenv("MQ_HOST"), os.Getenv("MQ_USER"), os.Getenv("MQ_PASS"), os.Getenv("MQ_PORT"))
 		if err != nil {
@@ -36,9 +36,7 @@ func (requests *SourceRequests) Register(request SourceRequest) {
 			return
 		}
 
-		for _, r := range *requests {
-			mq.Send("dumpRequests", r.ToJson())
-		}
+		mq.Send("dumpRequests", requests.ToJson())
 		*requests = []SourceRequest{}
 
 		_ = mq.Connection.Close()
@@ -46,7 +44,7 @@ func (requests *SourceRequests) Register(request SourceRequest) {
 
 }
 
-func (requests *SourceRequests) ToJson() []byte {
+func (requests SourceRequests) ToJson() []byte {
 	bytes, _ := json.Marshal(requests)
 
 	return bytes
