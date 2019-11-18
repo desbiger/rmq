@@ -9,12 +9,13 @@ import (
 )
 
 type SourceRequest struct {
-	Ip       string
-	Ua       string
-	Port     int
-	DateTime time.Time
-	Url      string
-	AgentID  int
+	Ip        string
+	Ua        string
+	Port      int
+	DateTime  time.Time
+	Url       string
+	WafAction string
+	AgentID   string
 }
 
 func (request SourceRequest) ToJson() []byte {
@@ -29,9 +30,9 @@ func (requests *SourceRequests) Register(request SourceRequest) {
 
 	*requests = append(*requests, request)
 
-	CountToDump, err := strconv.ParseInt(os.Getenv("CLICKHOUSE_COUNT_TO_DUMP"),10,16)
+	CountToDump, err := strconv.ParseInt(os.Getenv("CLICKHOUSE_COUNT_TO_DUMP"), 10, 16)
 
-	if err != nil{
+	if err != nil {
 		log.Print(err)
 	}
 
