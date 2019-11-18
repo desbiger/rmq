@@ -53,7 +53,7 @@ func (engine Engine) Send(s string, body []byte) {
 
 }
 
-func (engine Engine) Listen(s string, DumpRequest func(res []byte)) {
+func (engine *Engine) Listen(s string, DumpRequest func(res []byte)) {
 	conn, err := amqp.Dial(fmt.Sprintf("amqp://%s:%s@%s:%s/", engine.User, engine.Pass, engine.Host, engine.Port))
 	fatalOnError(err)
 
