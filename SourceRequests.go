@@ -17,6 +17,8 @@ type SourceRequest struct {
 	Url       string
 	WafAction string
 	AgentID   string
+	Method string
+	Referer string
 }
 
 func (request SourceRequest) ToJson() []byte {
