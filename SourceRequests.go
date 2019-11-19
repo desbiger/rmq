@@ -32,9 +32,7 @@ type SourceRequests struct {
 
 func (requests *SourceRequests) Register(request SourceRequest) {
 
-	requests.Lock()
 	requests.list = append(requests.list, request)
-	requests.Unlock()
 
 	CountToDump, err := strconv.ParseInt(os.Getenv("CLICKHOUSE_COUNT_TO_DUMP"), 10, 16)
 	requestsCount := len(requests.list)
@@ -50,7 +48,6 @@ func (requests *SourceRequests) Register(request SourceRequest) {
 			log.Println(err.Error())
 			return
 		}
-
 		mq.Send("dumpRequests", requests.ToJson())
 		requests.Reset()
 
@@ -59,9 +56,11 @@ func (requests *SourceRequests) Register(request SourceRequest) {
 
 }
 
-func (requests SourceRequests) ToJson() []byte {
-	bytes, _ := json.Marshal(requests)
-
+func (requests *SourceRequests) ToJson() []byte {
+	bytes, err := json.Marshal(requests.list)
+	if err != nil{
+		log.Println(err)
+	}
 	return bytes
 }
 
