@@ -28,18 +28,16 @@ func (engine Engine) Get(Action string) []byte {
 	return res.Body
 }
 
-func (engine Engine) Send(s string, body []byte) {
+func (engine Engine) Send(s string, body []byte) error {
 
 	ch, err := engine.Connection.Channel()
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
 
 	_, err = ch.QueueDeclare(s, false, false, false, false, nil)
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
 
 	err = ch.Publish("", s, false, false, amqp.Publishing{
@@ -47,10 +45,10 @@ func (engine Engine) Send(s string, body []byte) {
 		Body:        body,
 	})
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
 
+	return nil
 }
 
 func (engine Engine) Listen(s string, DumpRequest func(res []byte)) {
@@ -63,7 +61,7 @@ func (engine Engine) Listen(s string, DumpRequest func(res []byte)) {
 	fatalOnError(err)
 
 	msgs, err := ch.Consume(s, "", true, false, false, false, nil)
-	for d := range msgs{
+	for d := range msgs {
 		log.Println("geting data")
 		DumpRequest(d.Body)
 	}
