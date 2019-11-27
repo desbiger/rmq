@@ -53,7 +53,7 @@ func (engine Engine) Send(s string, body []byte) {
 
 }
 
-func (engine *Engine) Listen(s string, DumpRequest func(res []byte)) {
+func (engine *Engine) Listen(s string, Func func(res []byte)) {
 	conn, err := amqp.Dial(fmt.Sprintf("amqp://%s:%s@%s:%s/", engine.User, engine.Pass, engine.Host, engine.Port))
 	fatalOnError(err)
 
@@ -62,10 +62,10 @@ func (engine *Engine) Listen(s string, DumpRequest func(res []byte)) {
 	ch, err := conn.Channel()
 	fatalOnError(err)
 
-	msgs, err := ch.Consume(s, "", true, false, false, false, nil)
+	msgs, err := ch.Consume(s, "hoff", true, false, false, false, nil)
 	for d := range msgs{
 		log.Println("geting data")
-		DumpRequest(d.Body)
+		Func(d.Body)
 	}
 }
 
