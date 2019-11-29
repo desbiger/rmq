@@ -52,8 +52,37 @@ func (engine Engine) Send(s string, body []byte) {
 	}
 
 }
+func (engine Engine) RPC(body []byte,agent string) ([]byte, error) {
 
-func (engine *Engine) Listen(s string, Func func(res []byte)) {
+	ch, err := engine.Connection.Channel()
+	if err != nil {
+		return nil, err
+	}
+
+	q, err := ch.QueueDeclare("", false, false, true, false, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	err = ch.Publish("", "RPC", false, false, amqp.Publishing{
+		ContentType: "text/plain",
+		Body:        body,
+		ReplyTo:     q.Name,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := ch.Consume(q.Name, agent, true, false, false, false, nil)
+
+	for msg := range res {
+		_ = ch.Close()
+		return msg.Body, err
+	}
+	return nil, nil
+}
+
+func (engine *Engine) Listen(s string, exclusive bool, Func func(res []byte)) {
 	conn, err := amqp.Dial(fmt.Sprintf("amqp://%s:%s@%s:%s/", engine.User, engine.Pass, engine.Host, engine.Port))
 	fatalOnError(err)
 
@@ -62,8 +91,8 @@ func (engine *Engine) Listen(s string, Func func(res []byte)) {
 	ch, err := conn.Channel()
 	fatalOnError(err)
 
-	msgs, err := ch.Consume(s, "hoff", true, false, false, false, nil)
-	for d := range msgs{
+	msgs, err := ch.Consume(s, "hoff", true, exclusive, false, false, nil)
+	for d := range msgs {
 		log.Println("geting data")
 		Func(d.Body)
 	}
