@@ -52,11 +52,8 @@ func (requests *SourceRequests) Register(request SourceRequest) {
 			log.Println(err.Error())
 			return
 		}
-		err = mq.Send("dumpRequests", requests.ToJson())
-		if err != nil{
-			log.Println(err)
-			return
-		}
+		mq.Send("dumpRequests", requests.ToJson())
+
 		requests.Reset()
 
 	}
