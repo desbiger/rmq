@@ -81,6 +81,22 @@ func (engine Engine) RPC(body []byte,agent string) ([]byte, error) {
 	}
 	return nil, nil
 }
+func (engine *Engine) ListenSourceMessage(s string, exclusive bool, Func func(msg amqp.Delivery, connection *amqp.Connection)) {
+	conn, err := amqp.Dial(fmt.Sprintf("amqp://%s:%s@%s:%s/", engine.User, engine.Pass, engine.Host, engine.Port))
+	fatalOnError(err)
+
+	defer conn.Close()
+
+	ch, err := conn.Channel()
+	fatalOnError(err)
+
+	msgs, err := ch.Consume(s, "hoff", true, exclusive, false, false, nil)
+
+	for d := range msgs {
+		log.Println(d)
+		Func(d,conn)
+	}
+}
 
 func (engine *Engine) Listen(s string, exclusive bool, Func func(res []byte)) {
 	conn, err := amqp.Dial(fmt.Sprintf("amqp://%s:%s@%s:%s/", engine.User, engine.Pass, engine.Host, engine.Port))
@@ -92,8 +108,9 @@ func (engine *Engine) Listen(s string, exclusive bool, Func func(res []byte)) {
 	fatalOnError(err)
 
 	msgs, err := ch.Consume(s, "hoff", true, exclusive, false, false, nil)
+
 	for d := range msgs {
-		log.Println("geting data")
+		log.Println(d.ReplyTo)
 		Func(d.Body)
 	}
 }
