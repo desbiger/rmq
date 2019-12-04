@@ -55,6 +55,7 @@ func (engine Engine) Send(s string, body []byte) {
 func (engine Engine) RPC(body []byte,agent string) ([]byte, error) {
 
 	ch, err := engine.Connection.Channel()
+
 	if err != nil {
 		return nil, err
 	}
@@ -64,12 +65,16 @@ func (engine Engine) RPC(body []byte,agent string) ([]byte, error) {
 		return nil, err
 	}
 
+
 	err = ch.Publish("", "RPC", false, false, amqp.Publishing{
 		ContentType: "text/plain",
 		Body:        body,
 		ReplyTo:     q.Name,
 	})
+
+
 	if err != nil {
+
 		return nil, err
 	}
 
@@ -94,7 +99,6 @@ func (engine *Engine) ListenSourceMessage(s string, exclusive bool, Func func(ms
 	msgs, err := ch.Consume(s, "hoff", true, exclusive, false, false, nil)
 
 	for d := range msgs {
-		log.Println(d)
 		Func(d,conn)
 	}
 }
