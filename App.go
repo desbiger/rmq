@@ -82,6 +82,7 @@ func (engine Engine) RPC(body []byte,agent string) ([]byte, error) {
 	return nil, nil
 }
 func (engine *Engine) ListenSourceMessage(s string, exclusive bool, Func func(msg amqp.Delivery, connection *amqp.Connection)) {
+
 	conn, err := amqp.Dial(fmt.Sprintf("amqp://%s:%s@%s:%s/", engine.User, engine.Pass, engine.Host, engine.Port))
 	fatalOnError(err)
 
