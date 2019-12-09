@@ -57,7 +57,6 @@ func (engine *Engine) RPC(body []byte, agent string) ([]byte, error) {
 
 	rpcID := "1"
 	ch,err := engine.Connection.Channel()
-	pp.Println("chan")
 	if err != nil{
 		log.Println(err)
 	}
@@ -67,29 +66,24 @@ func (engine *Engine) RPC(body []byte, agent string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	pp.Println("RPC_ANSWERS")
 	err = ch.Publish("", "RPC", false, false, amqp.Publishing{
 		ContentType:   "application/json",
 		Body:          body,
 		ReplyTo:       ReplayTo.Name,
 		CorrelationId: rpcID,
 	})
-	pp.Println("Publish RPC")
 	if err != nil {
 
 		return nil, err
 	}
 
 	res, err := ch.Consume(ReplayTo.Name, agent, false, false, false, false, nil)
-	pp.Println("Consume ", ReplayTo.Name)
 	if err != nil {
 		pp.Println(err)
 		log.Println(err)
 	}
 	for msg := range res {
-		pp.Println("3")
 		if msg.CorrelationId == rpcID {
-			pp.Println("4")
 			err := msg.Ack(true)
 			if err != nil {
 				log.Println(err)
