@@ -37,7 +37,7 @@ func (engine *Engine) Send(s string, body []byte) {
 		return
 	}
 
-	_, err = ch.QueueDeclare(s, false, false, false, false, nil)
+	_, err = ch.QueueDeclare(s, true, false, false, false, nil)
 	if err != nil {
 		log.Println(err)
 		return

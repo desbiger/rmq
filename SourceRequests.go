@@ -46,12 +46,12 @@ func (requests *SourceRequests) Register(request SourceRequest) {
 	if requestsCount >= int(CountToDump) {
 
 		mq, err := NewEngine(os.Getenv("MQ_HOST"), os.Getenv("MQ_USER"), os.Getenv("MQ_PASS"), os.Getenv("MQ_PORT"))
-		defer mq.Connection.Close()
 
 		if err != nil {
 			log.Println(err.Error())
 			return
 		}
+		defer mq.Connection.Close()
 		mq.Send("dumpRequests", requests.ToJson())
 
 		requests.Reset()
