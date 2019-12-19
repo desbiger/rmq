@@ -1,10 +1,12 @@
 package rmq
 
 import (
+	"errors"
 	"fmt"
-	"github.com/k0kubun/pp"
 	"github.com/streadway/amqp"
 	"log"
+	"runtime/debug"
+	"time"
 )
 
 type Engine struct {
@@ -56,44 +58,56 @@ func (engine *Engine) Send(s string, body []byte) {
 func (engine *Engine) RPC(body []byte, agent string) ([]byte, error) {
 
 	rpcID := "1"
-	ch,err := engine.Connection.Channel()
-	if err != nil{
+	ch, err := engine.Connection.Channel()
+	if err != nil {
+		debug.PrintStack()
 		log.Println(err)
 	}
 	defer ch.Close()
 
-	ReplayTo, err := ch.QueueDeclare("RPC_ANSWERS", false, false, false, true, nil)
+	ReplyTo, err := ch.QueueDeclare("", false, false, true, false,
+		amqp.Table{
+			"x-message-ttl": 1000,
+			"x-expires":     3000,
+		},
+	)
 	if err != nil {
+		debug.PrintStack()
 		return nil, err
 	}
 	err = ch.Publish("", "RPC", false, false, amqp.Publishing{
 		ContentType:   "application/json",
 		Body:          body,
-		ReplyTo:       ReplayTo.Name,
+		ReplyTo:       ReplyTo.Name,
 		CorrelationId: rpcID,
 	})
 	if err != nil {
-
+		debug.PrintStack()
 		return nil, err
 	}
 
-	res, err := ch.Consume(ReplayTo.Name, agent, false, false, false, false, nil)
+
+
+	res, err := ch.Consume(ReplyTo.Name, agent, true, false, false, false, nil)
 	if err != nil {
-		pp.Println(err)
+		debug.PrintStack()
 		log.Println(err)
 	}
-	for msg := range res {
-		if msg.CorrelationId == rpcID {
-			err := msg.Ack(true)
-			if err != nil {
-				log.Println(err)
-			}
-			return msg.Body, err
-		}
 
+	go func() {
+		time.Sleep(2 * time.Second)
+		err = ch.Cancel(agent, false)
+		if err != nil{
+			log.Println(err)
+			debug.PrintStack()
+		}
+	}()
+
+	for msg := range res {
+		return msg.Body, err
 	}
 
-	return nil, nil
+	return nil, errors.New("No answer from server ")
 }
 func (engine *Engine) ListenSourceMessage(s string, exclusive bool, Func func(msg amqp.Delivery, connection *amqp.Connection)) {
 
