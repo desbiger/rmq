@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/streadway/amqp"
 	"log"
-	"runtime/debug"
 	"time"
 )
 
@@ -60,7 +59,7 @@ func (engine *Engine) RPC(body []byte, agent string) ([]byte, error) {
 	rpcID := "1"
 	ch, err := engine.Connection.Channel()
 	if err != nil {
-		debug.PrintStack()
+
 		log.Println(err)
 	}
 	defer ch.Close()
@@ -72,7 +71,7 @@ func (engine *Engine) RPC(body []byte, agent string) ([]byte, error) {
 		},
 	)
 	if err != nil {
-		debug.PrintStack()
+
 		return nil, err
 	}
 	err = ch.Publish("", "RPC", false, false, amqp.Publishing{
@@ -82,7 +81,7 @@ func (engine *Engine) RPC(body []byte, agent string) ([]byte, error) {
 		CorrelationId: rpcID,
 	})
 	if err != nil {
-		debug.PrintStack()
+
 		return nil, err
 	}
 
@@ -90,7 +89,7 @@ func (engine *Engine) RPC(body []byte, agent string) ([]byte, error) {
 
 	res, err := ch.Consume(ReplyTo.Name, agent, true, false, false, false, nil)
 	if err != nil {
-		debug.PrintStack()
+
 		log.Println(err)
 	}
 
@@ -99,7 +98,7 @@ func (engine *Engine) RPC(body []byte, agent string) ([]byte, error) {
 		err = ch.Cancel(agent, false)
 		if err != nil{
 			log.Println(err)
-			debug.PrintStack()
+
 		}
 	}()
 
