@@ -52,9 +52,9 @@ func (requests *SourceRequests) Register(request SourceRequest) {
 			log.Println("Error init NewEngine. Method Register SourceRequests",err.Error())
 			return
 		}
-		defer mq.Connection.Close()
-		mq.Send("dumpRequests", requests.ToJson())
 
+		mq.Send("dumpRequests", requests.ToJson())
+		mq.Close()
 		requests.Reset()
 
 	}
