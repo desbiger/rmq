@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"runtime/debug"
 	"strconv"
 	"sync"
 	"time"
@@ -17,8 +18,8 @@ type SourceRequest struct {
 	Url       string
 	WafAction string
 	AgentID   string
-	Method string
-	Referer string
+	Method    string
+	Referer   string
 }
 
 func (request SourceRequest) ToJson() []byte {
@@ -48,7 +49,7 @@ func (requests *SourceRequests) Register(request SourceRequest) {
 		mq, err := NewEngine(os.Getenv("MQ_HOST"), os.Getenv("MQ_USER"), os.Getenv("MQ_PASS"), os.Getenv("MQ_PORT"))
 
 		if err != nil {
-			log.Println(err.Error())
+			log.Println("Error init NewEngine. Method Register SourceRequests",err.Error())
 			return
 		}
 		defer mq.Connection.Close()
@@ -62,14 +63,17 @@ func (requests *SourceRequests) Register(request SourceRequest) {
 
 func (requests *SourceRequests) ToJson() []byte {
 	bytes, err := json.Marshal(requests.list)
-	if err != nil{
-		log.Println(err)
+	if err != nil {
+		if os.Getenv("DEBUG") == "true"{
+ debug.PrintStack() 
+} 
+		log.Println("Error marshal to json SourceRequest.list",err)
 	}
 	return bytes
 }
 
 func (requests *SourceRequests) Reset() {
 	requests.Lock()
-	requests.list = make([]SourceRequest,0)
+	requests.list = make([]SourceRequest, 0)
 	requests.Unlock()
 }

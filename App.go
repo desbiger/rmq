@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/streadway/amqp"
 	"log"
+	"os"
+	"runtime/debug"
 	"time"
 )
 
@@ -34,13 +36,19 @@ func (engine *Engine) Send(s string, body []byte) {
 
 	ch, err := engine.Connection.Channel()
 	if err != nil {
-		log.Println(err)
+		if os.Getenv("DEBUG") == "true"{
+ debug.PrintStack() 
+} 
+		log.Println("Error init rqm channel", err)
 		return
 	}
 
 	_, err = ch.QueueDeclare(s, true, false, false, false, nil)
 	if err != nil {
-		log.Println(err)
+		if os.Getenv("DEBUG") == "true"{
+ debug.PrintStack() 
+} 
+		log.Println("Error declare queue", err)
 		return
 	}
 
@@ -49,7 +57,10 @@ func (engine *Engine) Send(s string, body []byte) {
 		Body:        body,
 	})
 	if err != nil {
-		log.Println(err)
+		if os.Getenv("DEBUG") == "true"{
+ debug.PrintStack() 
+} 
+		log.Println("Error publish ro rqm", err)
 		return
 	}
 
@@ -60,7 +71,10 @@ func (engine *Engine) RPC(body []byte, agent string) ([]byte, error) {
 	ch, err := engine.Connection.Channel()
 	if err != nil {
 
-		log.Println(err)
+		if os.Getenv("DEBUG") == "true"{
+ debug.PrintStack() 
+} 
+		log.Println("Error init rqm channel", err)
 	}
 	defer ch.Close()
 
@@ -85,19 +99,23 @@ func (engine *Engine) RPC(body []byte, agent string) ([]byte, error) {
 		return nil, err
 	}
 
-
-
 	res, err := ch.Consume(ReplyTo.Name, agent, true, false, false, false, nil)
 	if err != nil {
 
-		log.Println(err)
+		if os.Getenv("DEBUG") == "true"{
+ debug.PrintStack() 
+} 
+		log.Println("Error consume to queue"+ReplyTo.Name, err)
 	}
 
 	go func() {
 		time.Sleep(2 * time.Second)
 		err = ch.Cancel(agent, false)
-		if err != nil{
-			log.Println(err)
+		if err != nil {
+			if os.Getenv("DEBUG") == "true"{
+ debug.PrintStack() 
+} 
+			log.Println("Error closing channel",err)
 
 		}
 	}()
@@ -125,7 +143,10 @@ func (engine *Engine) ListenSourceMessage(s string, exclusive bool, Func func(ms
 	msgs, err := ch.Consume(s, "RootServer", true, exclusive, false, false, nil)
 
 	if err != nil {
-		log.Println(err)
+		if os.Getenv("DEBUG") == "true"{
+ debug.PrintStack() 
+} 
+		log.Println("Error consume to queue"+s,err)
 	}
 	for d := range msgs {
 		go Func(d, conn)
@@ -144,7 +165,6 @@ func (engine *Engine) Listen(s string, exclusive bool, Func func(res []byte)) {
 	msgs, err := ch.Consume(s, "RootServer", true, exclusive, false, false, nil)
 
 	for d := range msgs {
-		log.Println(d.ReplyTo)
 		Func(d.Body)
 	}
 }
