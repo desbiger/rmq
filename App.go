@@ -67,7 +67,6 @@ func (engine *Engine) Send(s string, body []byte) {
 }
 func (engine *Engine) RPC(body []byte, agent string) ([]byte, error) {
 
-
 	chCloses := make(chan bool)
 	rpcID := "1"
 	ch, err := engine.Connection.Channel()
@@ -175,8 +174,13 @@ func (engine *Engine) Listen(s string, exclusive bool, Func func(res []byte)) {
 	ch, err := conn.Channel()
 	fatalOnError(err, "Error channel connection. Method Listen.")
 	_, err = ch.QueueDeclare(s, true, false, false, false, nil)
+	if err != nil {
+		log.Println("Error declare queue "+s+".Method Listen.", err)
+	}
 	msgs, err := ch.Consume(s, "RootServer", true, exclusive, false, false, nil)
-
+	if err != nil {
+		log.Println("Error Consume queue "+s+".Method Listen.", err)
+	}
 	for d := range msgs {
 		Func(d.Body)
 	}
