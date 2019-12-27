@@ -1,10 +1,13 @@
 package rmq
 
 import (
+	"errors"
 	"fmt"
-	"github.com/k0kubun/pp"
 	"github.com/streadway/amqp"
 	"log"
+	"os"
+	"runtime/debug"
+	"time"
 )
 
 type Engine struct {
@@ -17,12 +20,12 @@ type Engine struct {
 
 func (engine *Engine) Get(Action string) []byte {
 	conn, err := amqp.Dial(fmt.Sprintf("amqp://%s:%s@%s:%s/", engine.User, engine.Pass, engine.Host, engine.Port))
-	fatalOnError(err)
+	fatalOnError(err, "Error connection to RabbitMQ Dial. Method Get ")
 
 	defer conn.Close()
 
 	ch, err := conn.Channel()
-	fatalOnError(err)
+	fatalOnError(err, "Error channel connection. Method Get. ")
 
 	res, _, _ := ch.Get(Action, true)
 
@@ -33,13 +36,19 @@ func (engine *Engine) Send(s string, body []byte) {
 
 	ch, err := engine.Connection.Channel()
 	if err != nil {
-		log.Println(err)
+		if os.Getenv("DEBUG") == "true" {
+			debug.PrintStack()
+		}
+		log.Println("Error init rqm channel. Method Send. ", err)
 		return
 	}
 
-	_, err = ch.QueueDeclare(s, false, false, false, false, nil)
+	_, err = ch.QueueDeclare(s, true, false, false, false, nil)
 	if err != nil {
-		log.Println(err)
+		if os.Getenv("DEBUG") == "true" {
+			debug.PrintStack()
+		}
+		log.Println("Error declare queue", err)
 		return
 	}
 
@@ -48,77 +57,109 @@ func (engine *Engine) Send(s string, body []byte) {
 		Body:        body,
 	})
 	if err != nil {
-		log.Println(err)
+		if os.Getenv("DEBUG") == "true" {
+			debug.PrintStack()
+		}
+		log.Println("Error publish ro rqm", err)
 		return
 	}
 
 }
 func (engine *Engine) RPC(body []byte, agent string) ([]byte, error) {
 
+
+	chCloses := make(chan bool)
 	rpcID := "1"
 	ch, err := engine.Connection.Channel()
-	pp.Println("chan")
 	if err != nil {
-		log.Println(err)
-	}
-	defer ch.Close()
 
-	ReplayTo, err := ch.QueueDeclare("RPC_ANSWERS", false, false, false, true, nil)
+		if os.Getenv("DEBUG") == "true" {
+			debug.PrintStack()
+		}
+		log.Println("Error init rqm channel", err)
+	}
+	defer func() {
+		e := ch.Close()
+		if e != nil {
+			log.Println("Error closing channel. Method RPC.", e)
+		}
+	}()
+
+	ReplyTo, err := ch.QueueDeclare("", false, false, true, false,
+		amqp.Table{
+			"x-message-ttl": 1000,
+			"x-expires":     3000,
+		},
+	)
 	if err != nil {
+
 		return nil, err
 	}
-	pp.Println("RPC_ANSWERS")
 	err = ch.Publish("", "RPC", false, false, amqp.Publishing{
 		ContentType:   "application/json",
 		Body:          body,
-		ReplyTo:       ReplayTo.Name,
+		ReplyTo:       ReplyTo.Name,
 		CorrelationId: rpcID,
 	})
-	pp.Println("Publish RPC")
 	if err != nil {
 
 		return nil, err
 	}
 
-	res, err := ch.Consume(ReplayTo.Name, agent, false, false, false, false, nil)
-	pp.Println("Consume ", ReplayTo.Name)
+	res, err := ch.Consume(ReplyTo.Name, agent, true, false, false, false, nil)
 	if err != nil {
-		pp.Println(err)
-		log.Println(err)
-	}
-	for msg := range res {
-		pp.Println("3")
-		if msg.CorrelationId == rpcID {
-			pp.Println("4")
-			err := msg.Ack(true)
-			if err != nil {
-				log.Println(err)
-			}
-			return msg.Body, err
+
+		if os.Getenv("DEBUG") == "true" {
+			debug.PrintStack()
 		}
-
+		log.Println("Error consume to queue"+ReplyTo.Name, err)
 	}
 
-	return nil, nil
+	go func() {
+		time.Sleep(1 * time.Second)
+		select {
+		case _ = <-chCloses:
+			return
+		default:
+			err = ch.Cancel(agent, false)
+			if err != nil {
+				if os.Getenv("DEBUG") == "true" {
+					debug.PrintStack()
+				}
+				log.Println("Error cancel channel. Method RPC ", err)
+			}
+			close(chCloses)
+			return
+		}
+	}()
+
+	for msg := range res {
+		return msg.Body, err
+	}
+
+	return nil, errors.New("No answer from server ")
 }
 func (engine *Engine) ListenSourceMessage(s string, exclusive bool, Func func(msg amqp.Delivery, connection *amqp.Connection)) {
 
 	conn, err := amqp.Dial(fmt.Sprintf("amqp://%s:%s@%s:%s/", engine.User, engine.Pass, engine.Host, engine.Port))
-	fatalOnError(err)
+	fatalOnError(err, "Error connection to RabbitMQ Dial. Method ListenSourceMessage")
 
 	defer conn.Close()
 
 	ch, err := conn.Channel()
 	defer ch.Close()
 
-	fatalOnError(err)
+	fatalOnError(err, "Error channel connection. Method ListenSourceMessage")
 	_, err = ch.QueueDeclare(s, true, false, false, false, nil)
-	fatalOnError(err)
+	fatalOnError(err, "Error declare queue. Method ListenSourceMessage. ")
 
 	msgs, err := ch.Consume(s, "RootServer", true, exclusive, false, false, nil)
 
 	if err != nil {
-		log.Println(err)
+		if os.Getenv("DEBUG") == "true" {
+			debug.PrintStack()
+		}
+		log.Println("Error consume to queue"+s, err)
 	}
 	for d := range msgs {
 		go Func(d, conn)
@@ -127,23 +168,16 @@ func (engine *Engine) ListenSourceMessage(s string, exclusive bool, Func func(ms
 
 func (engine *Engine) Listen(s string, exclusive bool, Func func(res []byte)) {
 	conn, err := amqp.Dial(fmt.Sprintf("amqp://%s:%s@%s:%s/", engine.User, engine.Pass, engine.Host, engine.Port))
-	fatalOnError(err)
+	fatalOnError(err, "Error RabbitMQ connection Dial. Method Listen")
 
 	defer conn.Close()
 
 	ch, err := conn.Channel()
-	fatalOnError(err)
+	fatalOnError(err, "Error channel connection. Method Listen.")
 	_, err = ch.QueueDeclare(s, true, false, false, false, nil)
-	if err != nil {
-		log.Println("Error declare queue "+s, err)
-	}
-	mesgs, err := ch.Consume(s, "RootServer", true, exclusive, false, false, nil)
-	if err != nil {
-		log.Println("Error consuming queue "+s, err)
-	}
+	msgs, err := ch.Consume(s, "RootServer", true, exclusive, false, false, nil)
 
-	for d := range mesgs {
-		log.Println(d.ReplyTo)
+	for d := range msgs {
 		Func(d.Body)
 	}
 }
@@ -170,8 +204,8 @@ func NewEngine(Host string, User string, Pass string, Port string) (*Engine, err
 	return engine, nil
 }
 
-func fatalOnError(err error) {
+func fatalOnError(err error, i string) {
 	if err != nil {
-		log.Println(err.Error())
+		log.Println(i, err.Error())
 	}
 }
