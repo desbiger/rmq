@@ -56,9 +56,9 @@ func (engine *Engine) Send(s string, body []byte) {
 func (engine *Engine) RPC(body []byte, agent string) ([]byte, error) {
 
 	rpcID := "1"
-	ch,err := engine.Connection.Channel()
+	ch, err := engine.Connection.Channel()
 	pp.Println("chan")
-	if err != nil{
+	if err != nil {
 		log.Println(err)
 	}
 	defer ch.Close()
@@ -134,9 +134,15 @@ func (engine *Engine) Listen(s string, exclusive bool, Func func(res []byte)) {
 	ch, err := conn.Channel()
 	fatalOnError(err)
 	_, err = ch.QueueDeclare(s, true, false, false, false, nil)
-	msgs, err := ch.Consume(s, "RootServer", true, exclusive, false, false, nil)
+	if err != nil {
+		log.Println("Error declare queue "+s, err)
+	}
+	mesgs, err := ch.Consume(s, "RootServer", true, exclusive, false, false, nil)
+	if err != nil {
+		log.Println("Error consuming queue "+s, err)
+	}
 
-	for d := range msgs {
+	for d := range mesgs {
 		log.Println(d.ReplyTo)
 		Func(d.Body)
 	}
