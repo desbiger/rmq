@@ -62,6 +62,9 @@ func (requests *SourceRequests) Register(request SourceRequest) {
 }
 
 func (requests *SourceRequests) ToJson() []byte {
+	if requests.list == nil{
+		return nil
+	}
 	bytes, err := json.Marshal(requests.list)
 	if err != nil {
 		if os.Getenv("DEBUG") == "true"{
