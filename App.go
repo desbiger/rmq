@@ -140,10 +140,7 @@ func (engine *Engine) RPC(body []byte, agent string) ([]byte, error) {
 }
 func (engine *Engine) ListenSourceMessage(s string, exclusive bool, Func func(msg amqp.Delivery, connection *amqp.Connection)) {
 
-	conn, err := amqp.Dial(fmt.Sprintf("amqp://%s:%s@%s:%s/", engine.User, engine.Pass, engine.Host, engine.Port))
-	fatalOnError(err, "Error connection to RabbitMQ Dial. Method ListenSourceMessage")
-
-	defer conn.Close()
+	conn := engine.Connection
 
 	ch, err := conn.Channel()
 	defer ch.Close()
@@ -166,21 +163,22 @@ func (engine *Engine) ListenSourceMessage(s string, exclusive bool, Func func(ms
 }
 
 func (engine *Engine) Listen(s string, exclusive bool, Func func(res []byte)) {
-	conn, err := amqp.Dial(fmt.Sprintf("amqp://%s:%s@%s:%s/", engine.User, engine.Pass, engine.Host, engine.Port))
-	fatalOnError(err, "Error RabbitMQ connection Dial. Method Listen")
+	conn := engine.Connection
 
 	defer conn.Close()
 
 	ch, err := conn.Channel()
 	fatalOnError(err, "Error channel connection. Method Listen.")
+	defer ch.Close()
+
 	_, err = ch.QueueDeclare(s, true, false, false, false, nil)
-	if err != nil {
-		log.Println("Error declare queue "+s+".Method Listen.", err)
-	}
 	msgs, err := ch.Consume(s, "RootServer", true, exclusive, false, false, nil)
+
 	if err != nil {
-		log.Println("Error Consume queue "+s+".Method Listen.", err)
+		log.Println("Error consuming queue "+s+".Method Listen", err)
+		return
 	}
+
 	for d := range msgs {
 		Func(d.Body)
 	}
@@ -201,6 +199,7 @@ func NewEngine(Host string, User string, Pass string, Port string) (*Engine, err
 
 	conn, err := amqp.Dial(fmt.Sprintf("amqp://%s:%s@%s:%s/", engine.User, engine.Pass, engine.Host, engine.Port))
 	if err != nil {
+		fatalOnError(err,"Error RMQ connection. Method NewEngine")
 		return nil, err
 	}
 
