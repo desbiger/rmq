@@ -67,7 +67,6 @@ func (engine *Engine) Send(s string, body []byte) {
 }
 func (engine *Engine) RPC(body []byte, agent string) ([]byte, error) {
 
-
 	chCloses := make(chan bool)
 	rpcID := "1"
 	ch, err := engine.Connection.Channel()
@@ -77,6 +76,8 @@ func (engine *Engine) RPC(body []byte, agent string) ([]byte, error) {
 			debug.PrintStack()
 		}
 		log.Println("Error init rqm channel", err)
+
+		return nil, err
 	}
 	defer func() {
 		e := ch.Close()
