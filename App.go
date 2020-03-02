@@ -100,6 +100,7 @@ func (engine *Engine) RPC(body []byte, agent string) ([]byte, error) {
 		ContentType:   "application/json",
 		Body:          body,
 		ReplyTo:       ReplyTo.Name,
+		AppId:         agent,
 		CorrelationId: rpcID,
 	})
 	if err != nil {
@@ -201,7 +202,7 @@ func NewEngine(Host string, User string, Pass string, Port string) (*Engine, err
 
 	conn, err := amqp.Dial(fmt.Sprintf("amqp://%s:%s@%s:%s/", engine.User, engine.Pass, engine.Host, engine.Port))
 	if err != nil {
-		fatalOnError(err,"Error RMQ connection. Method NewEngine")
+		fatalOnError(err, "Error RMQ connection. Method NewEngine")
 		return nil, err
 	}
 
